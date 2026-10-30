@@ -3,6 +3,7 @@
 [![CI](https://github.com/volodymyr-malishevskyi/hostkeep/actions/workflows/ci.yml/badge.svg)](https://github.com/volodymyr-malishevskyi/hostkeep/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/hostkeep.svg)](https://crates.io/crates/hostkeep)
 [![License](https://img.shields.io/crates/l/hostkeep.svg)](#license)
+[![Built With Ratatui](https://ratatui.rs/built-with-ratatui/badge.svg)](https://ratatui.rs/)
 
 **A terminal UI editor for `/etc/hosts` on macOS and Linux.** Enable and disable host entries with
 one key, organize them into groups (Docker, VPN, staging, ad blocking…), and save safely with a diff
