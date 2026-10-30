@@ -321,9 +321,14 @@ fn diff_lines(old: &str, new: &str) -> (Vec<Line<'static>>, usize, usize) {
     (lines, added, removed)
 }
 
+/// Everything below the header; a margin would show clipped bits of the main view.
 fn big_area(f: &Frame) -> Rect {
     let a = f.area();
-    centered(a, a.width.saturating_sub(4).max(40), a.height.saturating_sub(2).max(10))
+    Rect {
+        y: a.y + 1,
+        height: a.height.saturating_sub(1),
+        ..a
+    }
 }
 
 fn draw_diff(f: &mut Frame, app: &App, diff: &mut DiffView) {

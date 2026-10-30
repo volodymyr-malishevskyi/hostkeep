@@ -3,6 +3,13 @@ name = "hostkeep"
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
+description = "Terminal UI editor for /etc/hosts: toggle, group and edit entries safely, with backups and diff preview"
+repository = "https://github.com/volodymyr-malishevskyi/hostkeep"
+homepage = "https://github.com/volodymyr-malishevskyi/hostkeep"
+readme = "README.md"
+keywords = ["hosts", "etc-hosts", "tui", "dns", "cli"]
+categories = ["command-line-utilities"]
+exclude = ["assets/", "docs/", ".github/", "dist-workspace.toml"]
 
 [dependencies]
 anyhow = "1.0.104"
@@ -16,3 +23,8 @@ similar = "3.2.1"
 sys-locale = "0.3.2"
 tempfile = "3.27.0"
 toml = "1.1.8"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

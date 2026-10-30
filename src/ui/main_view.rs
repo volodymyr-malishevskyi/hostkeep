@@ -11,6 +11,8 @@ use crate::paths::APP_NAME;
 use crate::t;
 
 const NARROW: u16 = 70;
+/// The group column in "All" is shown only if the hosts column keeps at least this much.
+const HOSTS_MIN: usize = 24;
 
 pub fn draw_header(f: &mut Frame, app: &App, area: Rect) {
     let mut right = Vec::new();
@@ -73,8 +75,13 @@ pub fn draw_body(f: &mut Frame, app: &mut App, area: Rect) {
             Focus::Entries => (None, Some(area)),
         }
     } else {
-        let longest = labels.iter().map(|(l, _, _)| l.chars().count()).max().unwrap_or(10) as u16;
-        let width = (longest + 14).clamp(22, 34);
+        // Name, gap and count, plus borders and the highlight symbol; at most 30% so entries keep room.
+        let needed = labels
+            .iter()
+            .map(|(l, e, t)| l.chars().count() + format!(" {e}/{t}").len() + 4)
+            .max()
+            .unwrap_or(22) as u16;
+        let width = needed.clamp(22, 34).min(area.width * 3 / 10).max(20);
         let [g, e] = Layout::horizontal([Constraint::Length(width), Constraint::Fill(1)]).areas(area);
         (Some(g), Some(e))
     };
@@ -95,7 +102,7 @@ fn draw_groups(f: &mut Frame, app: &mut App, area: Rect, labels: &[(String, usiz
         .enumerate()
         .map(|(i, (name, enabled, total))| {
             let count = format!("{enabled}/{total}");
-            let name: String = name.chars().take(inner_width.saturating_sub(count.len() + 1)).collect();
+            let name = ellipsize(name, inner_width.saturating_sub(count.len() + 1));
             let pad = inner_width.saturating_sub(name.chars().count() + count.len());
             let name_style = if i == 0 {
                 Style::new().add_modifier(Modifier::ITALIC)
@@ -124,7 +131,7 @@ fn draw_entries(f: &mut Frame, app: &mut App, area: Rect) {
     let active = app.focus == Focus::Entries;
     let visible = app.visible_entries();
     let group = app.selected_group();
-    let show_group_col = group.is_none();
+    let all_view = group.is_none();
 
     let title = group.as_ref().map(App::group_label).unwrap_or_else(|| t!("group-all"));
     let (enabled, total) = match &group {
@@ -171,7 +178,7 @@ fn draw_entries(f: &mut Frame, app: &mut App, area: Rect) {
         .unwrap_or(9)
         .clamp(7, 39) as u16;
 
-    let group_names: Vec<String> = if show_group_col {
+    let group_names: Vec<String> = if all_view {
         visible
             .iter()
             .map(|&i| {
@@ -186,23 +193,28 @@ fn draw_entries(f: &mut Frame, app: &mut App, area: Rect) {
         Vec::new()
     };
 
-    let group_width = if show_group_col {
-        group_names
-            .iter()
-            .chain([&t!("col-group")])
-            .map(|n| n.chars().count())
-            .max()
-            .unwrap_or(5)
-            .min(24)
-    } else {
-        0
-    };
-    // Hosts and description share what is left 3:2. Inner width minus the highlight symbol,
-    // the three flag columns, IP, group and the gaps between columns.
-    let columns = if show_group_col { 7 } else { 6 };
-    let rest = (area.width as usize).saturating_sub(2 + 1 + 3 + ip_width as usize + group_width + (columns - 1));
-    let hosts_width = rest * 3 / 5;
-    let comment_width = rest - hosts_width;
+    let group_width = group_names
+        .iter()
+        .chain([&t!("col-group")])
+        .map(|n| n.chars().count())
+        .max()
+        .unwrap_or(5)
+        .min(24);
+    // Inner width minus the highlight symbol, the three flag columns, IP and the gaps between
+    // the six base columns. Hosts come first: the group column is dropped when it would squeeze
+    // them, and the description takes at most 2/5 and no more than its longest text.
+    let base = (area.width as usize).saturating_sub(2 + 1 + 3 + ip_width as usize + 5);
+    let show_group_col = all_view && base >= group_width + 1 + HOSTS_MIN;
+    let rest = if show_group_col { base - group_width - 1 } else { base };
+    let comment_width = visible
+        .iter()
+        .filter_map(|&i| app.doc.entry(i)?.comment.as_deref())
+        .map(|c| expand_tabs(c).chars().count())
+        .chain([t!("col-comment").chars().count()])
+        .max()
+        .unwrap_or(0)
+        .min(rest * 2 / 5);
+    let hosts_width = rest - comment_width;
     app.hosts_width = hosts_width;
 
     let rows: Vec<Row> = visible
@@ -246,7 +258,7 @@ fn draw_entries(f: &mut Frame, app: &mut App, area: Rect) {
                 Line::from(Span::styled(e.ip.clone(), ip_style)),
                 Line::from(Span::styled(fit_hosts(&e.hosts, hosts_width), text_style)),
                 Line::from(Span::styled(
-                    expand_tabs(e.comment.as_deref().unwrap_or_default()),
+                    ellipsize(&expand_tabs(e.comment.as_deref().unwrap_or_default()), comment_width),
                     Style::new().fg(theme::MUTED),
                 )),
             ];
@@ -291,6 +303,14 @@ fn draw_entries(f: &mut Frame, app: &mut App, area: Rect) {
     app.page_size = area.height.saturating_sub(4).max(1) as usize;
     app.entries_state.select(Some(app.entry_sel));
     f.render_stateful_widget(table, area, &mut app.entries_state);
+}
+
+/// Cuts `text` to `width` chars, ending with `…` when shortened.
+fn ellipsize(text: &str, width: usize) -> String {
+    if text.chars().count() <= width {
+        return text.to_string();
+    }
+    text.chars().take(width.saturating_sub(1)).chain(['…']).collect()
 }
 
 /// Joins as many whole host names as fit into `width`, then `+N` for the rest.
@@ -338,14 +358,7 @@ pub fn draw_status(f: &mut Frame, app: &App, area: Rect) {
         } else if app.report.duplicate_lines.contains(&i) {
             Line::from(Span::styled(format!(" ≡ {}", t!("warn-duplicate")), warn))
         } else if entry.hosts.join(" ").chars().count() > app.hosts_width {
-            let all = entry.hosts.join(" ");
-            let room = (area.width as usize).saturating_sub(1);
-            let text = if all.chars().count() > room {
-                let cut: String = all.chars().take(room.saturating_sub(1)).collect();
-                format!("{cut}…")
-            } else {
-                all
-            };
+            let text = ellipsize(&entry.hosts.join(" "), (area.width as usize).saturating_sub(1));
             Line::from(Span::raw(format!(" {text}")))
         } else {
             summary_line(app)
@@ -424,7 +437,7 @@ pub fn draw_keybar(f: &mut Frame, app: &App, area: Rect) {
 
 #[cfg(test)]
 mod tests {
-    use super::fit_hosts;
+    use super::{ellipsize, fit_hosts};
 
     #[test]
     fn fits_host_names() {
@@ -434,5 +447,11 @@ mod tests {
         assert_eq!(fit_hosts(&hosts, 12), "a.local +2");
         assert_eq!(fit_hosts(&hosts, 8), "a.lo… +2");
         assert_eq!(fit_hosts(&hosts[..1], 5), "a.lo…");
+    }
+
+    #[test]
+    fn ellipsizes() {
+        assert_eq!(ellipsize("cache", 5), "cache");
+        assert_eq!(ellipsize("S3-compatible", 5), "S3-c…");
     }
 }

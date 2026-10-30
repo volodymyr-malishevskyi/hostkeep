@@ -1,18 +1,17 @@
 # hostkeep
 
-A terminal UI editor for the hosts file. Toggle, add, edit and group entries in `/etc/hosts`
-without breaking its formatting.
+[![CI](https://github.com/volodymyr-malishevskyi/hostkeep/actions/workflows/ci.yml/badge.svg)](https://github.com/volodymyr-malishevskyi/hostkeep/actions/workflows/ci.yml)
+[![crates.io](https://img.shields.io/crates/v/hostkeep.svg)](https://crates.io/crates/hostkeep)
+[![License](https://img.shields.io/crates/l/hostkeep.svg)](#license)
 
-```
- hostkeep ─ /etc/hosts                                               ● modified  EN
-┌ Groups ─────────────┐┌ Docker ──────────────────────────────────── 2/3 enabled ┐
-│  All           9/14 ││       IP          Hosts                Description      │
-│  Ungrouped      3/3 ││   ●   127.0.0.1   postgres.local       db               │
-│▶ Docker         2/3 ││▶  ●   127.0.0.1   redis.local          cache            │
-│  Work VPN       3/5 ││   ○   127.0.0.1   kafka.local                           │
-└─────────────────────┘└─────────────────────────────────────────────────────────┘
- Space toggle  a add  e edit  d delete  / search  s save  ? help
-```
+**A terminal UI editor for `/etc/hosts` on macOS and Linux.** Enable and disable host entries with
+one key, organize them into groups (Docker, VPN, staging, ad blocking…), and save safely with a diff
+preview and automatic backups — without breaking the file's formatting.
+
+A keyboard-driven hosts file manager for developers who switch local domains often and are tired of
+`sudo vim /etc/hosts`.
+
+![hostkeep demo: toggling entries and groups, adding an entry, searching and saving with a diff preview](assets/demo.gif)
 
 ## Features
 
@@ -33,19 +32,32 @@ Platforms: macOS and Linux.
 
 ## Install
 
-Requires a [Rust toolchain](https://rustup.rs) (edition 2024).
+**Homebrew** (macOS and Linux):
 
 ```sh
-git clone <repository-url> hostkeep
-cd hostkeep
-cargo install --path .
+brew install volodymyr-malishevskyi/tap/hostkeep
 ```
 
-The binary goes to `~/.cargo/bin/hostkeep`. To make it available to every user instead:
+**Cargo:**
 
 ```sh
-cargo build --release
-sudo install -m 755 target/release/hostkeep /usr/local/bin/
+cargo install hostkeep
+```
+
+**Prebuilt binary** (installs to `~/.cargo/bin`):
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/volodymyr-malishevskyi/hostkeep/releases/latest/download/hostkeep-installer.sh | sh
+```
+
+Or download an archive for your platform from [Releases](https://github.com/volodymyr-malishevskyi/hostkeep/releases).
+
+**From source** (requires a [Rust toolchain](https://rustup.rs), edition 2024):
+
+```sh
+git clone https://github.com/volodymyr-malishevskyi/hostkeep
+cd hostkeep
+cargo install --path .
 ```
 
 ## Usage

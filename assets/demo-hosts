@@ -1,0 +1,32 @@
+##
+# Host Database
+#
+# localhost is used to configure the loopback interface
+# when the system is booting.  Do not change this entry.
+##
+127.0.0.1       localhost
+255.255.255.255 broadcasthost
+::1             localhost
+
+# @group Docker
+127.0.0.1       postgres.local  # main database
+127.0.0.1       redis.local     # cache
+# 127.0.0.1     kafka.local
+127.0.0.1       minio.local     # S3-compatible storage
+# @end
+
+# @group Staging
+# 203.0.113.10  app.example.com api.example.com
+# 203.0.113.11  admin.example.com
+# @end
+
+# @group Work VPN
+10.8.0.12       gitlab.corp.internal
+10.8.0.15       jira.corp.internal  # tickets
+# 10.8.0.20     grafana.corp.internal
+# @end
+
+# @group Block distractions
+0.0.0.0         news.ycombinator.com
+0.0.0.0         reddit.com www.reddit.com
+# @end
