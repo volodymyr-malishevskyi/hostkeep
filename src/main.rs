@@ -1,4 +1,5 @@
 mod app;
+mod cli;
 mod config;
 mod hosts;
 mod i18n;
@@ -14,13 +15,25 @@ use clap::{ArgAction, CommandFactory, FromArgMatches, Parser};
 use config::Config;
 
 #[derive(Parser)]
-#[command(name = paths::APP_NAME, version, disable_help_flag = true, disable_version_flag = true)]
+#[command(
+    name = paths::APP_NAME,
+    version,
+    disable_help_flag = true,
+    disable_version_flag = true,
+    disable_help_subcommand = true
+)]
 struct Cli {
-    #[arg(short, long, value_name = "PATH")]
+    #[command(subcommand)]
+    command: Option<cli::Command>,
+    #[arg(short, long, value_name = "PATH", global = true)]
     file: Option<PathBuf>,
-    #[arg(long, value_name = "LANG", value_parser = ["uk", "en"], hide_possible_values = true)]
+    #[arg(long, value_name = "LANG", value_parser = ["uk", "en"], hide_possible_values = true, global = true)]
     lang: Option<String>,
-    #[arg(short, long, action = ArgAction::Help)]
+    #[arg(long, global = true)]
+    dry_run: bool,
+    #[arg(short, long, global = true)]
+    quiet: bool,
+    #[arg(short, long, action = ArgAction::Help, global = true)]
     help: Option<bool>,
     #[arg(short = 'V', long, action = ArgAction::Version)]
     version: Option<bool>,
@@ -44,20 +57,17 @@ fn main() -> ExitCode {
     };
     i18n::set_lang(i18n::resolve(lang_arg().as_deref(), &config.language));
 
-    // clap's own headings are English-only, so the template supplies translated ones.
-    let template = format!(
-        "{{about}}\n\n{}: {{usage}}\n\n{}:\n{{options}}",
-        t!("cli-usage"),
-        t!("cli-options")
+    let command = cli::localize(
+        Cli::command()
+            .about(t!("cli-about"))
+            .mut_arg("file", |a| a.help(t!("cli-file")))
+            .mut_arg("lang", |a| a.help(t!("cli-lang")))
+            .mut_arg("dry_run", |a| a.help(t!("cli-dry-run")))
+            .mut_arg("quiet", |a| a.help(t!("cli-quiet")))
+            .mut_arg("help", |a| a.help(t!("cli-help")))
+            .mut_arg("version", |a| a.help(t!("cli-version"))),
     );
-    let command = Cli::command()
-        .about(t!("cli-about"))
-        .help_template(template)
-        .mut_arg("file", |a| a.help(t!("cli-file")))
-        .mut_arg("lang", |a| a.help(t!("cli-lang")))
-        .mut_arg("help", |a| a.help(t!("cli-help")))
-        .mut_arg("version", |a| a.help(t!("cli-version")));
-    let cli = match Cli::from_arg_matches(&command.get_matches()) {
+    let cli = match Cli::from_arg_matches(&command.clone().get_matches()) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };
@@ -68,12 +78,28 @@ fn main() -> ExitCode {
             t!("error-config", path = config_path.display().to_string(), error = e)
         );
     }
+    let path = cli.file.unwrap_or_else(|| config.hosts_path.clone());
+    if let Some(cmd) = cli.command {
+        let ctx = cli::Context {
+            path,
+            config,
+            dry_run: cli.dry_run,
+            quiet: cli.quiet,
+        };
+        return match cli::run(cmd, &ctx, command) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("{e:#}");
+                ExitCode::FAILURE
+            }
+        };
+    }
+
     if !std::io::stdout().is_terminal() {
         eprintln!("{}", t!("error-not-terminal"));
         return ExitCode::FAILURE;
     }
 
-    let path = cli.file.unwrap_or_else(|| config.hosts_path.clone());
     let app = match app::App::new(path.clone(), config, config_path) {
         Ok(app) => app,
         Err(e) => {

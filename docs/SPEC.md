@@ -332,9 +332,9 @@ real `/etc/hosts`. i18n tests: the `en` and `uk` key sets match, and every key u
 
 ## 7. Implementation status (v0.1)
 
-F-01…F-38 are implemented, except for the items below. 38 automated tests (parser round-trip,
-model, validation, writing/backups, config, i18n, form helpers), plus manual checks of every
-screen through a pty.
+F-01…F-38 are implemented, except for the items below. 44 automated tests (parser round-trip,
+model, validation, writing/backups, config, i18n, form helpers, CLI commands), plus manual checks of
+every screen through a pty and of every CLI command on a copy of a hosts file.
 
 **Deviations from the spec**
 - F-04: no mouse support (it was optional) — mouse capture breaks text selection in the terminal.
@@ -355,3 +355,125 @@ screen through a pty.
   them from 1 to 8 rows (the form opens centered, then only grows downwards); `↑↓` move between
   names (from the first/last row — to the neighbouring field), `Space` starts a new name,
   `Alt/Ctrl+←→` jump by word in every text field.
+- Diff, raw file and backups views take the whole screen below the header (a margin showed clipped
+  bits of the main view). On narrow terminals the hosts column gets priority: the group column in
+  "All" hides when hosts would get under 24 characters, the description takes at most 2/5 and no
+  more than its longest text, and cut text ends with `…`.
+- CLI commands (section 8): `list`, `groups`, `on`, `off`, `toggle`, `add`, `rm`, `completions`.
+
+---
+
+## 8. CLI commands (v0.2)
+
+L-02: the same file operations without the TUI, for scripts, aliases and quick one-off changes.
+`hostkeep` with no command still opens the TUI.
+
+### 8.1 Commands
+
+```
+hostkeep                                   open the TUI (as now)
+hostkeep list   [GROUP] [--enabled | --disabled] [--json]
+hostkeep groups [--json]
+hostkeep on     TARGET...  [--group | --host]
+hostkeep off    TARGET...  [--group | --host] [--force]
+hostkeep toggle TARGET...  [--group | --host] [--force]
+hostkeep add    IP HOST... [-g GROUP] [-c COMMENT] [--disabled]
+hostkeep rm     HOST...    [--force]
+hostkeep rm     --group GROUP... [--keep-entries] [--force]
+hostkeep completions bash|zsh|fish
+```
+
+Global options for every command: `--file PATH`, `--lang uk|en`, `--dry-run` (print the diff, write
+nothing), `-q/--quiet` (no output on success).
+
+**TARGET** is a group name or a host name, matched exactly and case-insensitively. A name that is
+both a group and a host is an error that asks for `--group` or `--host`.
+
+### 8.2 Examples
+
+```
+$ hostkeep list
+Ungrouped
+  ● ◆ 127.0.0.1        localhost
+  ● ◆ 255.255.255.255  broadcasthost
+Docker                                   3/4
+  ●   127.0.0.1        postgres.local    # main database
+  ○   127.0.0.1        kafka.local
+Work VPN                                 2/3
+  ●   10.8.0.12        gitlab.corp.internal
+  ○   10.8.0.20        grafana.corp.internal
+
+$ hostkeep groups
+Ungrouped   3/3
+Docker      3/4
+Staging     0/2
+Work VPN    2/3
+
+$ hostkeep off "Work VPN"
+Disabled group "Work VPN" (2 entries). Backup: hosts-20261031-101500
+
+$ hostkeep on kafka.local
+Enabled kafka.local (127.0.0.1)
+
+$ hostkeep on kafka.local
+kafka.local is already enabled — nothing to save
+
+$ hostkeep add 127.0.0.1 api.local admin.local -g Docker -c "new backend"
+Added 127.0.0.1 api.local admin.local to "Docker"
+
+$ hostkeep rm admin.local
+Removed admin.local from 127.0.0.1 api.local admin.local
+
+$ hostkeep off localhost
+localhost is a system entry; disabling it can break your system. Repeat with --force.
+
+$ hostkeep off Docker --dry-run
+--- /etc/hosts
++++ /etc/hosts (new)
+@@ …
+-127.0.0.1       postgres.local  # main database
++# 127.0.0.1     postgres.local  # main database
+```
+
+### 8.3 Behaviour
+
+- **Output.** `list` and `groups` print the table above. Colors (green ● / grey ○, as in the TUI)
+  only when stdout is a terminal and `NO_COLOR` is not set; piped output is plain text. `--json`
+  prints an array of `{ip, hosts, comment, enabled, group, protected}` / `{name, enabled, total}`.
+  The ◆ and ●/○ markers stay in plain output so it is still readable; scripts use `--json`.
+- **Saving** is the same as in the TUI: a backup first, then an atomic write. If the file is not
+  writable: `sudo -n cp`, otherwise the regular `sudo` prompt in the same terminal. Without a
+  terminal (cron, CI) it fails with a hint to run `sudo hostkeep …`. After saving `/etc/hosts`, the
+  DNS cache is flushed when `flush_dns = true`.
+- **No change, no write.** If every target is already in the requested state, nothing is written,
+  no backup is made, and the exit code is 0.
+- **Protected entries** (`localhost` etc.) need `--force` for `off` and `rm`, matching the TUI's
+  confirmation dialog. `on` never needs it.
+- **`add`** validates the IP and host names like the form does. A missing group (`-g`) is created at
+  the end of the file. A host that is already enabled with a different IP is a warning, not an error
+  (the TUI shows the same as ⚠).
+- **`on HOST` / `toggle HOST`** with the host in several entries (e.g. the same name with different
+  IPs in different groups) is an error: enabling all of them would create a conflict, so the message
+  lists the entries and suggests switching their group instead. `off HOST` disables all of them.
+  An entry with several names is switched as a whole line; the message shows the full entry.
+- **`toggle`** flips a host entry; for a group it works like `Space` in the TUI: enable all unless all
+  are enabled, then disable all. Disabling a protected entry needs `--force`, as with `off`.
+- **`rm HOST`** removes that name from its entries; an entry left with no names is deleted.
+- **`rm --group NAME`** deletes the group with its entries; `--keep-entries` removes only the markers,
+  and the entries become ungrouped (the same choice as in the TUI dialog). Unlike `on`/`off`, `rm`
+  never guesses: without `--group` its arguments are host names, so a host that shares a name with a
+  group can never delete the whole group. Protected entries inside need `--force` unless kept.
+- Several targets in one command are resolved first: one unknown or ambiguous target fails the whole
+  command before anything changes, and all changes are saved in one write with one backup.
+- **Exit codes:** 0 success (including "nothing to change"), 1 error (unknown target, invalid input,
+  write failure), 2 wrong arguments (clap).
+- **Messages** are translated (uk/en) like the TUI; `--json` keys and values are not.
+
+### 8.4 Decisions
+
+1. Targets are auto-detected as a group or a host; `--group`/`--host` only resolve a clash.
+2. `toggle` is included.
+3. `rm --group` is included, with `--keep-entries` and an explicit `--group` (see above).
+4. `completions` prints static completions for commands and flags (clap_complete); completing group
+   and host names from the file is left for later.
+5. No `list --grep`: `grep` on the plain output does it.

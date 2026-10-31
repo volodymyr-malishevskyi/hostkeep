@@ -73,6 +73,26 @@ Run it as your regular user. When the file is not writable, the header shows tha
 on save hostkeep first tries `sudo -n` (silent if sudo still remembers your password) and otherwise
 steps out of the UI for the usual `sudo` prompt. hostkeep never reads or stores the password itself.
 
+### Command line
+
+The same changes without the UI, for scripts and aliases:
+
+```sh
+hostkeep list                          # all entries by group (--json for scripts)
+hostkeep groups                        # groups with enabled/total counts
+hostkeep on "Work VPN"                 # enable a group…
+hostkeep off kafka.local               # …or a single host
+hostkeep toggle Staging                # flip a group or host
+hostkeep add 127.0.0.1 api.local -g Docker -c "new backend"
+hostkeep rm api.local                  # remove a host name
+hostkeep rm --group Staging            # remove a group (--keep-entries keeps its entries)
+hostkeep off Docker --dry-run          # show the diff, save nothing
+```
+
+Names match case-insensitively; a name that is both a group and a host needs `--group` or `--host`.
+Every change makes a backup, nothing is written when nothing changes, and system entries such as
+`localhost` need `--force`. Shell completions: `hostkeep completions zsh` (or `bash`, `fish`).
+
 ### Keys
 
 | Key | Action |

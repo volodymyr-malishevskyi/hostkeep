@@ -1,6 +1,6 @@
 [package]
 name = "hostkeep"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Terminal UI editor for /etc/hosts: toggle, group and edit entries safely, with backups and diff preview"
@@ -15,10 +15,12 @@ exclude = ["assets/", "docs/", ".github/", "dist-workspace.toml"]
 anyhow = "1.0.104"
 chrono = "0.4.45"
 clap = { version = "4.6.7", features = ["derive"] }
+clap_complete = "4.6.11"
 fluent-templates = "0.15.1"
 libc = "0.2.191"
 ratatui = "0.30.2"
 serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
 similar = "3.2.1"
 sys-locale = "0.3.2"
 tempfile = "3.27.0"
