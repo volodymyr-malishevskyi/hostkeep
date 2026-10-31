@@ -5,12 +5,11 @@
 [![License](https://img.shields.io/crates/l/hostkeep.svg)](#license)
 [![Built With Ratatui](https://ratatui.rs/built-with-ratatui/badge.svg)](https://ratatui.rs/)
 
-**A terminal UI editor for `/etc/hosts` on macOS and Linux.** Enable and disable host entries with
-one key, organize them into groups (Docker, VPN, staging, ad blocking…), and save safely with a diff
-preview and automatic backups — without breaking the file's formatting.
+**A terminal UI and command-line editor for `/etc/hosts` on macOS and Linux.** Enable and disable
+host entries with one key, organize them into groups (Docker, VPN, staging, ad blocking…), and save
+safely with a diff preview and automatic backups — without breaking the file's formatting.
 
-A keyboard-driven hosts file manager for developers who switch local domains often and are tired of
-`sudo vim /etc/hosts`.
+For developers who switch local domains often and are tired of `sudo vim /etc/hosts`.
 
 ![hostkeep demo: toggling entries and groups, adding an entry, searching and saving with a diff preview](assets/demo.gif)
 
@@ -27,9 +26,9 @@ A keyboard-driven hosts file manager for developers who switch local domains oft
   changes made by other programs, restore from backups.
 - **No need to run as root:** hostkeep asks for `sudo` only when saving.
 - **DNS cache flush** after saving `/etc/hosts` (macOS, Linux with systemd-resolved).
+- **Command line** for scripts and aliases: `hostkeep on Docker`, `hostkeep add …`, `--dry-run`, `--json`.
+- **Runs anywhere a terminal does**, including over SSH. A single binary with no runtime.
 - **English and Ukrainian** interface, switchable with `L`.
-
-Platforms: macOS and Linux.
 
 ## Install
 
@@ -73,27 +72,12 @@ Run it as your regular user. When the file is not writable, the header shows tha
 on save hostkeep first tries `sudo -n` (silent if sudo still remembers your password) and otherwise
 steps out of the UI for the usual `sudo` prompt. hostkeep never reads or stores the password itself.
 
-### Command line
-
-The same changes without the UI, for scripts and aliases:
-
-```sh
-hostkeep list                          # all entries by group (--json for scripts)
-hostkeep groups                        # groups with enabled/total counts
-hostkeep on "Work VPN"                 # enable a group…
-hostkeep off kafka.local               # …or a single host
-hostkeep toggle Staging                # flip a group or host
-hostkeep add 127.0.0.1 api.local -g Docker -c "new backend"
-hostkeep rm api.local                  # remove a host name
-hostkeep rm --group Staging            # remove a group (--keep-entries keeps its entries)
-hostkeep off Docker --dry-run          # show the diff, save nothing
-```
-
-Names match case-insensitively; a name that is both a group and a host needs `--group` or `--host`.
-Every change makes a backup, nothing is written when nothing changes, and system entries such as
-`localhost` need `--force`. Shell completions: `hostkeep completions zsh` (or `bash`, `fish`).
-
 ### Keys
+
+Press `?` in the app for the full list.
+
+<details>
+<summary>All keys</summary>
 
 | Key | Action |
 |---|---|
@@ -116,8 +100,32 @@ Every change makes a backup, nothing is written when nothing changes, and system
 | `?` | help |
 | `q` / `Esc` | quit |
 
+</details>
+
 In the entry form the hosts field lists one name per row: `↑↓` move between names, `Space` starts a
 new one, `Alt+←→` jump by word.
+
+## Command line
+
+The same changes without the UI, for scripts and aliases:
+
+![hostkeep command line: listing groups, a dry run with a diff, enabling a group and a host, adding an entry](assets/cli.gif)
+
+```sh
+hostkeep list                          # all entries by group (--json for scripts)
+hostkeep groups                        # groups with enabled/total counts
+hostkeep on "Work VPN"                 # enable a group…
+hostkeep off kafka.local               # …or a single host
+hostkeep toggle Staging                # flip a group or host
+hostkeep add 127.0.0.1 api.local -g Docker -c "new backend"
+hostkeep rm api.local                  # remove a host name
+hostkeep rm --group Staging            # remove a group (--keep-entries keeps its entries)
+hostkeep off Docker --dry-run          # show the diff, save nothing
+```
+
+Names match case-insensitively; a name that is both a group and a host needs `--group` or `--host`.
+Every change makes a backup, nothing is written when nothing changes, and system entries such as
+`localhost` need `--force`. Shell completions: `hostkeep completions zsh` (or `bash`, `fish`).
 
 ## The hosts file format
 
@@ -157,7 +165,10 @@ Backups are kept in `~/.local/share/hostkeep/backups` (or `$XDG_DATA_HOME/hostke
 `hosts-YYYYMMDD-HHMMSS`. When hostkeep runs under `sudo`, config and backups still belong to the real
 user.
 
-## Development
+## Contributing
+
+Bug reports, ideas and pull requests are welcome in
+[Issues](https://github.com/volodymyr-malishevskyi/hostkeep/issues).
 
 ```sh
 cargo test                     # unit tests, including byte-exact parser round-trips
