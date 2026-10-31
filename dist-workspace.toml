@@ -21,3 +21,7 @@ install-path = "CARGO_HOME"
 hosting = "github"
 # Whether to install an updater program
 install-updater = false
+
+# macos-14 runners are retired on 2026-11-02 (and already fail during scheduled brownouts)
+[dist.github-custom-runners]
+aarch64-apple-darwin = "macos-15"
