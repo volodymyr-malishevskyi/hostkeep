@@ -9,7 +9,7 @@ homepage = "https://github.com/volodymyr-malishevskyi/hostkeep"
 readme = "README.md"
 keywords = ["hosts", "etc-hosts", "tui", "dns", "cli"]
 categories = ["command-line-utilities"]
-exclude = ["assets/", "docs/", ".github/", "dist-workspace.toml"]
+exclude = ["assets/", "docs/", ".github/", "dist-workspace.toml", "release.toml"]
 
 [dependencies]
 anyhow = "1.0.104"

@@ -1,0 +1,6 @@
+# cargo-release: `cargo release patch|minor|major --execute` bumps the version, commits, tags and
+# pushes. The tag then triggers CI: crates.io (publish-crates.yml) and binaries/Homebrew (release.yml).
+allow-branch = ["main"]
+publish = false
+tag-name = "v{{version}}"
+pre-release-commit-message = "Release {{version}}"

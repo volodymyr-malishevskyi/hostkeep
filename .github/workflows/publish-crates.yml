@@ -1,0 +1,40 @@
+# Publishes to crates.io when a version tag is pushed (cargo-dist's release.yml builds the binaries).
+# Uses trusted publishing: crates.io trusts this workflow, so no token is stored anywhere.
+name: Publish to crates.io
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Check the tag against Cargo.toml
+        id: version
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version $version in Cargo.toml"
+            exit 1
+          fi
+          # A re-pushed tag (e.g. after a failed binary build) must not fail on an existing version.
+          status=$(curl -s -o /dev/null -w '%{http_code}' -A "hostkeep-release (github actions)" \
+            "https://crates.io/api/v1/crates/hostkeep/$version")
+          echo "published=$([ "$status" = 200 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - uses: rust-lang/crates-io-auth-action@v1
+        if: steps.version.outputs.published == 'false'
+        id: auth
+
+      - if: steps.version.outputs.published == 'false'
+        run: cargo publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
